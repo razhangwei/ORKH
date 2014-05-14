@@ -83,22 +83,27 @@ function dataset = loadDataset (task, dataset)
     fprintf('  Time cost (CPU): %.4gs\n', timeCost.ctime);
   end
 
-  % sample training pair and compute similarity label
-  temp = floor(N1 / 2);
-  train_pair = [1 : temp; temp + 1 : temp *2]';
-  fprintf('Computing similarity labels of sampled pairs for dataset %s\n', dataset.name);  
-  cacheFile = sprintf('%s/TrainLabel_%s.mat', task.dataDir, dataset.name);
-  if loadCache(cacheFile, task.forceFresh, getConst('CACHE_VER_PAIR_LABEL'))
+  % sample training triplet
+  fprintf('Generating triplets for dataset %s\n', dataset.name);
+  cacheFile = sprintf('%s/triplet_%s.mat', task.dataDir, dataset.name);
+  if loadCache(cacheFile, task.forceFresh, getConst('CACHE_VER_TRIPLET') )
     tp = timerStart();
-    train_label = calcNeighborSparse(dataset, train_pair(:, 1), train_pair(:, 2));
+    switch dataset.neighborType
+      case 'label'
+        triplet = calcTriplet(dataset.X(dataset.indexTrain, :), dataset.label(dataset.indexTrain), 'label') ;
+      case 'tag'
+        triplet = calcTriplet(dataset.X(dataset.indexTrain, :), dataset.tag(dataset.indexTrain), 'tag');  
+      otherwise
+        error('Not supported to generating triplets for dataset %s yet\n', dataset.name);
+    end    
     timeCost = timerStop(tp);
-    save(cacheFile, 'version', 'train_pair', 'train_label', 'timeCost', '-v7.3');
+    save(cacheFile, 'version', 'triplet', 'timeCost', '-v7.3');
   end
-  dataset.train_pair = train_pair;
-  dataset.train_label = train_label;
-  fprintf('  # of sample pairs(training): %d\n', size(dataset.train_pair, 1));
-  fprintf('  Time cost (elapsed): %.4gs\n', timeCost.etime);
+  dataset.triplet = triplet;  
+  fprintf(' # of tuplets: %d\n', size(dataset.triplet, 1));
+  fprintf(' Average # of same-class and diff-class neighbors: %d\n', round(sqrt(size(dataset.triplet,1)/ length(dataset.indexTrain))));
   if (isfield(timeCost, 'ctime'))
     fprintf('  Time cost (CPU): %.4gs\n', timeCost.ctime);
   end
+
 end
